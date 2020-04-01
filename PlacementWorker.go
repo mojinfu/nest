@@ -3,6 +3,8 @@ package nest
 import (
 	"log"
 	"math"
+
+	. "github.com/mojinfu/nest/point"
 )
 
 func (this *PlacementWorkerStruct) logIfDebug(v ...interface{}) {
@@ -19,7 +21,7 @@ type PlacementWorkerStruct struct {
 	config     *ConfigStruct
 	nfpCache   map[string][]Polygon
 	IfDebug    bool
-	nest        *SVG
+	nest       *SVG
 }
 
 func (this *SVG) NewPlacementWorker(binPolygon *BinPolygonStruct, paths []*PolygonStruct, ids []int, Rotations []int, config *ConfigStruct, nfpCache map[string][]Polygon) *PlacementWorkerStruct {
@@ -32,7 +34,7 @@ func (this *SVG) NewPlacementWorker(binPolygon *BinPolygonStruct, paths []*Polyg
 		config:     config,
 		nfpCache:   nfpCache,
 		IfDebug:    this.config.IfDebug,
-		nest:        this,
+		nest:       this,
 	}
 }
 

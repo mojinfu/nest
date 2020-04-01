@@ -2,6 +2,8 @@ package nest
 
 import (
 	"math"
+
+	. "github.com/mojinfu/nest/point"
 )
 
 func ScaleUpPaths(a []Polygon, times int64) []IntPolygon {
@@ -13,7 +15,7 @@ func ScaleUpPaths(a []Polygon, times int64) []IntPolygon {
 	for c := len(a) - 1; c >= 0; c-- {
 		oneb := IntPolygon{}
 		for d := len(a[c]) - 1; d >= 0; d-- {
-			oneb = append(oneb, &IntPoint{int64(math.Round(a[c][d].X * float64(times))), int64(math.Round(a[c][d].Y * float64(times)))})
+			oneb = append(oneb, &IntPoint{X: int64(math.Round(a[c][d].X * float64(times))), Y: int64(math.Round(a[c][d].Y * float64(times)))})
 		}
 		b = append(b, oneb)
 	}

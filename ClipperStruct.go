@@ -5,6 +5,8 @@ import (
 	"log"
 	"math"
 	"sort"
+
+	. "github.com/mojinfu/nest/point"
 )
 
 func (this *ClipperStruct) logIfDebug(v ...interface{}) {
@@ -1410,10 +1412,10 @@ func (this *ClipperStruct) ProcessHorizontal(a *TEdgeStruct, b bool) {
 					return
 				}
 				if e == dLeftToRight {
-					m := &IntPoint{n.Curr.X, a.Curr.Y}
+					m := &IntPoint{X: n.Curr.X, Y: a.Curr.Y}
 					this.IntersectEdges(a, n, m, true)
 				} else {
-					m := &IntPoint{n.Curr.X, a.Curr.Y}
+					m := &IntPoint{X: n.Curr.X, Y: a.Curr.Y}
 					this.IntersectEdges(n, a, m, true)
 				}
 

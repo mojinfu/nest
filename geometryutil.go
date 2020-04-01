@@ -2,6 +2,8 @@ package nest
 
 import (
 	"math"
+
+	. "github.com/mojinfu/nest/point"
 )
 
 func polygonArea(myPolygon Polygon) float64 {
@@ -392,8 +394,8 @@ func (this *SVG) searchStartPoint(oldA, oldB *polygonWithOffset, inside bool, NF
 	}
 
 	for i := 0; i < len(A.Polygon)-1; i++ {
-		if !A.Polygon[i].marked {
-			A.Polygon[i].marked = true
+		if !A.Polygon[i].Marked {
+			A.Polygon[i].Marked = true
 			for j := 0; j < len(B.Polygon); j++ {
 				B.offsetx = A.Polygon[i].X - B.Polygon[j].X
 				B.offsety = A.Polygon[i].Y - B.Polygon[j].Y
@@ -782,7 +784,7 @@ func (this *SVG) noFitPolygon(A, B Polygon, inside bool, searchEdges bool) [][]*
 	var maxBindex = 0
 
 	for i := 1; i < len(A); i++ {
-		A[i].marked = false
+		A[i].Marked = false
 		if A[i].Y < minA {
 			minA = A[i].Y
 			minAindex = i
@@ -790,7 +792,7 @@ func (this *SVG) noFitPolygon(A, B Polygon, inside bool, searchEdges bool) [][]*
 	}
 
 	for i := 1; i < len(B); i++ {
-		B[i].marked = false
+		B[i].Marked = false
 		if B[i].Y > maxB {
 			maxB = B[i].Y
 			maxBindex = i
@@ -865,7 +867,7 @@ func (this *SVG) noFitPolygon(A, B Polygon, inside bool, searchEdges bool) [][]*
 			var vectors = []*vectorsStruct{}
 			for i := 0; i < len(touching); i++ {
 				var vertexA = A[touching[i].A]
-				vertexA.marked = true
+				vertexA.Marked = true
 
 				// adjacent A vertices
 				var prevAindex = touching[i].A - 1
@@ -1015,8 +1017,8 @@ func (this *SVG) noFitPolygon(A, B Polygon, inside bool, searchEdges bool) [][]*
 				break
 			}
 			this.logIfDebug("translate:", translate.x, translate.y, translate.start, translate.end)
-			translate.start.marked = true
-			translate.end.marked = true
+			translate.start.Marked = true
+			translate.end.Marked = true
 
 			prevvector = translate
 

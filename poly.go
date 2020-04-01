@@ -1,6 +1,8 @@
 package nest
 
-import "math"
+import (
+	. "github.com/mojinfu/nest/point"
+)
 
 type PolygonStruct struct {
 	RootPoly  *PolyNode
@@ -12,55 +14,6 @@ type PolygonStruct struct {
 	Name      string
 	isWart    bool
 	AngleList []int64
-}
-
-func NewArc() {
-
-}
-func NewCircle(x, y float64, r float64) []*Point {
-	poly := []*Point{}
-	var num = int(math.Ceil((2 * math.Pi) / math.Acos(1-(2/r))))
-	if num < 3 {
-		num = 3
-	}
-	for i := 0; i < num; i++ {
-		theta := float64(i) * ((2 * math.Pi) / float64(num))
-		point := &Point{
-			X: r*math.Cos(theta) + x,
-			Y: r*math.Sin(theta) + y,
-		}
-		poly = append(poly, point)
-	}
-	return poly
-}
-func (this *SVG) SetBinPoly(part *PolygonStruct) {
-	this.typeIDIndex++
-	part.setTypeID(this.typeIDIndex)
-
-	newPart := NewPoly(part.RootPoly.OriginPolygon)
-	newPart.SetAngelList(part.AngleList)
-	newPart.setTypeID(this.typeIDIndex)
-	newPart.SetName(part.Name)
-	newPart.isWart = part.isWart
-	this.bins = append(this.bins, newPart)
-	if len(this.bins) != 1 {
-		panic("")
-	}
-}
-func (this *SVG) AddPoly(part *PolygonStruct, num int) {
-	this.typeIDIndex++
-	part.setTypeID(this.typeIDIndex)
-	for i := 0; i < num; i++ {
-		newPart := NewPoly(part.RootPoly.OriginPolygon)
-		newPart.SetAngelList(part.AngleList)
-		newPart.setTypeID(this.typeIDIndex)
-		newPart.SetName(part.Name)
-		newPart.isWart = part.isWart
-		this.parts = append(this.parts, newPart)
-	}
-}
-func (this *SVG) addPoly(part *PolygonStruct) {
-	this.parts = append(this.parts, part)
 }
 
 func NewWartPoly(points []*Point) *PolygonStruct {

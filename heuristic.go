@@ -2,6 +2,8 @@ package nest
 
 import (
 	"math"
+
+	. "github.com/mojinfu/nest/point"
 )
 
 func MinWidthAndAtLeft(path *PolygonStruct, finalNfpFloat [][]*Point, placed []*PolygonStruct, placements []*PositionStruct) (position *PositionStruct) {

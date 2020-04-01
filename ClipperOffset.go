@@ -2,6 +2,8 @@ package nest
 
 import (
 	"math"
+
+	. "github.com/mojinfu/nest/point"
 )
 
 func (this *ClipperOffsetStruct) FixOrientations() {
@@ -335,10 +337,10 @@ func (this *ClipperOffsetStruct) ExecutePath(c float64) []IntPolygon {
 	} else {
 		c := a.GetBounds(this.m_destPolys)
 		e := IntPolygon{}
-		e = append(e, &IntPoint{c.left - 10, c.bottom + 10})
-		e = append(e, &IntPoint{c.right + 10, c.bottom + 10})
-		e = append(e, &IntPoint{c.right + 10, c.top - 10})
-		e = append(e, &IntPoint{c.left - 10, c.top - 10})
+		e = append(e, &IntPoint{X: c.left - 10, Y: c.bottom + 10})
+		e = append(e, &IntPoint{X: c.right + 10, Y: c.bottom + 10})
+		e = append(e, &IntPoint{X: c.right + 10, Y: c.top - 10})
+		e = append(e, &IntPoint{X: c.left - 10, Y: c.top - 10})
 		a.AddPath(e, ptSubject, true)
 		a.ReverseSolution = true
 		b, _ = a.Execute(ctUnion, pftNegative, pftNegative)

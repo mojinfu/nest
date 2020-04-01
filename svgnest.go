@@ -7,6 +7,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	. "github.com/mojinfu/nest/point"
 )
 
 type PairKeyStruct struct {
@@ -1178,3 +1180,32 @@ func cnFang(x, y, x1, y1, x2, y2 float64) float64 {
 // 		panic("too close")
 // 	}
 // }
+func (this *SVG) SetBinPoly(part *PolygonStruct) {
+	this.typeIDIndex++
+	part.setTypeID(this.typeIDIndex)
+
+	newPart := NewPoly(part.RootPoly.OriginPolygon)
+	newPart.SetAngelList(part.AngleList)
+	newPart.setTypeID(this.typeIDIndex)
+	newPart.SetName(part.Name)
+	newPart.isWart = part.isWart
+	this.bins = append(this.bins, newPart)
+	if len(this.bins) != 1 {
+		panic("")
+	}
+}
+func (this *SVG) AddPoly(part *PolygonStruct, num int) {
+	this.typeIDIndex++
+	part.setTypeID(this.typeIDIndex)
+	for i := 0; i < num; i++ {
+		newPart := NewPoly(part.RootPoly.OriginPolygon)
+		newPart.SetAngelList(part.AngleList)
+		newPart.setTypeID(this.typeIDIndex)
+		newPart.SetName(part.Name)
+		newPart.isWart = part.isWart
+		this.parts = append(this.parts, newPart)
+	}
+}
+func (this *SVG) addPoly(part *PolygonStruct) {
+	this.parts = append(this.parts, part)
+}

@@ -1,9 +1,9 @@
 package nest
 
 import (
-	"fmt"
 	"log"
 	"math"
+	. "github.com/mojinfu/nest/point"
 )
 
 func (this *SVG) logIfDebug(v ...interface{}) {
@@ -321,20 +321,6 @@ func NewJoin() *JoinStruct {
 	}
 }
 
-type Point struct {
-	X      float64
-	Y      float64
-	marked bool
-}
-
-type IntPoint struct {
-	X int64
-	Y int64
-}
-
-func (this *IntPoint) Print() string {
-	return fmt.Sprintf("{X:%d,Y:%d}", this.X, this.Y)
-}
 func IntPointReverse(a IntPolygon) IntPolygon {
 	b := IntPolygon{}
 	for index := range a {
