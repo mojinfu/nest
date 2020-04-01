@@ -1,7 +1,7 @@
 package nest
 
 import (
-	. "github.com/mojinfu/nest/point"
+	. "github.com/mojinfu/point"
 )
 
 type PolygonStruct struct {

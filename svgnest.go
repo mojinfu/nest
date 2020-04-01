@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	. "github.com/mojinfu/nest/point"
+	. "github.com/mojinfu/point"
 )
 
 type PairKeyStruct struct {

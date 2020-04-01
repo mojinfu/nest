@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/fogleman/gg"
-	. "github.com/mojinfu/nest/point"
+	. "github.com/mojinfu/point"
 )
 
 type Paper struct {

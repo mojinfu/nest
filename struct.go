@@ -3,7 +3,7 @@ package nest
 import (
 	"log"
 	"math"
-	. "github.com/mojinfu/nest/point"
+	. "github.com/mojinfu/point"
 )
 
 func (this *SVG) logIfDebug(v ...interface{}) {

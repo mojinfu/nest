@@ -6,7 +6,7 @@ import (
 	"math"
 	"sort"
 
-	. "github.com/mojinfu/nest/point"
+	. "github.com/mojinfu/point"
 )
 
 func (this *ClipperStruct) logIfDebug(v ...interface{}) {

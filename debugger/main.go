@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/mojinfu/nest"
-	"github.com/mojinfu/nest/point"
+	"github.com/mojinfu/point"
 )
 
 func main() {

@@ -3,7 +3,7 @@ package nest
 import (
 	"math"
 
-	. "github.com/mojinfu/nest/point"
+	. "github.com/mojinfu/point"
 )
 
 func polygonArea(myPolygon Polygon) float64 {
