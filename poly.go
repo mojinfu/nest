@@ -16,17 +16,6 @@ type PolygonStruct struct {
 	AngleList []int64
 }
 
-func NewWartPoly(points []*Point) *PolygonStruct {
-	return &PolygonStruct{
-		RootPoly: &PolyNode{
-			OriginPolygon: points,
-		},
-		isWart: true,
-		AngleList: []int64{
-			0,
-		},
-	}
-}
 func NewPolyWithName(points []*Point, name string) *PolygonStruct {
 	a := NewPoly(points)
 	a.SetName(name)

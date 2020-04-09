@@ -14,13 +14,28 @@ type Paper struct {
 	paperSavingPath string
 }
 
-func (this *SVG) NewPaper() *Paper {
+func (this *SVG) NewPaper() []*Paper {
+	myPaperList := []*Paper{}
+	for index := range this.maxX {
+		myPaper := &Paper{
+			LineWidth:       5,
+			paperSavingPath: this.config.PaperSavePath,
+		}
+		dc := gg.NewContext(int(this.maxX[index]), int(this.maxY[index])) //上下文，含长和宽
+		dc.SetRGB(1, 1, 1)                                                //设置当前色
+		dc.Clear()
+		myPaper.dc = dc
+		myPaperList = append(myPaperList, myPaper)
+	}
+	return myPaperList
+}
+func NewPaper(x, y int, path string) *Paper {
 	myPaper := &Paper{
 		LineWidth:       5,
-		paperSavingPath: this.config.PaperSavePath,
+		paperSavingPath: path,
 	}
-	dc := gg.NewContext(int(this.maxX), int(this.maxY)) //上下文，含长和宽
-	dc.SetRGB(1, 1, 1)                                  //设置当前色
+	dc := gg.NewContext(int(x), int(y)) //上下文，含长和宽
+	dc.SetRGB(1, 1, 1)                  //设置当前色
 	dc.Clear()
 	myPaper.dc = dc
 	return myPaper

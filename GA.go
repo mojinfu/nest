@@ -12,17 +12,17 @@ func (this *GAStruct) logIfDebug(v ...interface{}) {
 }
 
 type GAStruct struct {
-	binBounds  *BoundStruct
+	binBounds  []*BoundStruct
 	config     *ConfigStruct
 	population []*populationStruct
 	randomSeed *rand.Rand
 }
 type placementsStruct struct {
-	Placements [][]*PositionStruct
-	rotation   []int
-	fitness    float64
-	paths      []*PolygonStruct
-	area       float64
+	Placements  [][]*PositionStruct
+	rotation    []int
+	fitness     float64
+	placedPaths [][]*PolygonStruct
+	binArea     []float64
 }
 
 const defaultfitness float64 = 10000000
@@ -67,9 +67,7 @@ func (this *GAStruct) randomAngle(part *PolygonStruct) int {
 	shuffleArray := func(array []int) []int {
 		for i := len(array) - 1; i > 0; i-- {
 			var j = this.randomSeed.Intn(100) * (i + 1) / 100
-			var temp = array[i]
-			array[i] = array[j]
-			array[j] = temp
+			array[i], array[j] = array[j], array[i]
 		}
 		return array
 	}
@@ -77,24 +75,26 @@ func (this *GAStruct) randomAngle(part *PolygonStruct) int {
 	angleList = shuffleArray(angleList)
 
 	for i := 0; i < len(angleList); i++ {
-		_, bound := rotatePolygonA(part, angleList[i])
-
-		// don't use obviously bad angles where the part doesn't fit in the bin
-		if bound.width < this.binBounds.width && bound.height < this.binBounds.height {
-			this.logIfDebug("angleList[i]:", angleList[i])
-			return angleList[i]
-
-		}
+		//_, bound := rotatePolygonA(part, angleList[i])
+		//todo
+		return angleList[i]
+		// // don't use obviously bad angles where the part doesn't fit in the bin
+		// if bound.width < this.binBounds.width && bound.height < this.binBounds.height {
+		// 	this.logIfDebug("angleList[i]:", angleList[i])
+		// 	return angleList[i]
+		// }
 	}
-	return 0
+	return angleList[0]
 }
-func (this *SVG) NewGeneticAlgorithm(adam []*PolygonStruct, bin *BinPolygonStruct, config *ConfigStruct) *GAStruct {
+func (this *SVG) NewGeneticAlgorithm(adam []*PolygonStruct, bin []*PolygonStruct, config *ConfigStruct) *GAStruct {
 	myGA := &GAStruct{}
 	//myGA.randomSeed = rand.New(rand.NewSource(time.Now().UnixNano()))//saya
 
 	myGA.randomSeed = rand.New(rand.NewSource(3))
 	myGA.config = config
-	myGA.binBounds = getPolygonBounds(bin.myPolygon)
+	for index := range bin {
+		myGA.binBounds = append(myGA.binBounds, getPolygonBounds(bin[index].RootPoly.polygonBeforeRotation))
+	}
 	//myGA.IfDebug = this.config.IfDebug
 	//log.Println(this.Config.IfDebug)
 	// population is an array of individuals. Each individual is a object representing the order of insertion and the angle each part is rotated

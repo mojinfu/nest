@@ -14,27 +14,27 @@ func (this *PlacementWorkerStruct) logIfDebug(v ...interface{}) {
 }
 
 type PlacementWorkerStruct struct {
-	binPolygon *BinPolygonStruct
-	paths      []*PolygonStruct
-	ids        []int
-	Rotations  []int
-	config     *ConfigStruct
-	nfpCache   map[string][]Polygon
-	IfDebug    bool
-	nest       *SVG
+	binPolygons []*PolygonStruct
+	paths       []*PolygonStruct
+	warts       [][]*PolygonStruct
+	Rotations   []int
+	config      *ConfigStruct
+	nfpCache    map[string][]Polygon
+	IfDebug     bool
+	nest        *SVG
 }
 
-func (this *SVG) NewPlacementWorker(binPolygon *BinPolygonStruct, paths []*PolygonStruct, ids []int, Rotations []int, config *ConfigStruct, nfpCache map[string][]Polygon) *PlacementWorkerStruct {
+func (this *SVG) NewPlacementWorker(binPolygon []*PolygonStruct, paths []*PolygonStruct, warts [][]*PolygonStruct, Rotations []int, config *ConfigStruct, nfpCache map[string][]Polygon) *PlacementWorkerStruct {
 
 	return &PlacementWorkerStruct{
-		binPolygon: binPolygon,
-		paths:      paths,
-		ids:        ids,
-		Rotations:  Rotations,
-		config:     config,
-		nfpCache:   nfpCache,
-		IfDebug:    this.config.IfDebug,
-		nest:       this,
+		binPolygons: binPolygon,
+		paths:       paths,
+		Rotations:   Rotations,
+		config:      config,
+		nfpCache:    nfpCache,
+		IfDebug:     this.config.IfDebug,
+		nest:        this,
+		warts:       warts,
 	}
 }
 
@@ -64,50 +64,47 @@ func (this *PositionStruct) GetPoloID() int {
 
 var placePathsNum int64 = 0
 
-// func PrintPolygonStructList(list []*PolygonStruct) {
-// 	for index := range list {
-// 		this.logIfDebug("id:", list[index].id)
-// 	}
-// }
-func (this *PlacementWorkerStruct) placePaths(paths []*PolygonStruct) *placementsStruct {
+func (this *PlacementWorkerStruct) placePaths() (*placementsStruct, error) {
 	placePathsNum++
 	// if placePaths == 1 {
 	// 	PrintPolygonStructList(paths)
 	// }
-	if this.binPolygon == nil {
-		return nil
+	if len(this.binPolygons) == 0 {
+		return nil, nil
 	}
 	// rotate paths by given rotation
 	var rotated []*PolygonStruct
-	var notXiaCiRotated []*PolygonStruct
 	//把所有多边形 按照所需旋转角度，旋转
-	for i := 0; i < len(paths); i++ {
-		paths[i].RootPoly.rotatePolygon(paths[i].rotation)
-		if paths[i].isWart {
-			rotated = append(rotated, paths[i])
-		} else {
-			notXiaCiRotated = append(notXiaCiRotated, paths[i])
+	for i := 0; i < len(this.warts); i++ {
+		for j := 0; j < len(this.warts[i]); j++ {
+			rotated = append(rotated, this.warts[i][j])
 		}
 	}
-	for index := range notXiaCiRotated {
-		rotated = append(rotated, notXiaCiRotated[index])
+
+	for i := range this.paths {
+		this.paths[i].rotatePolygon(this.Rotations[i])
+		rotated = append(rotated, this.paths[i])
 	}
-	paths = rotated
+	this.paths = rotated
 	//旋转完毕
 	allplacements := [][]*PositionStruct{}
 	//所有多边形 放置后的位置记载
 	var fitness float64 = 10000
-	binarea := math.Abs(polygonArea(this.binPolygon.myPolygon))
+	binareaList := []float64{}
+	for index := range this.binPolygons {
+		binareaList = append(binareaList, math.Abs(polygonArea(this.binPolygons[index].RootPoly.polygonBeforeRotation)))
+	}
+	binarea := binareaList[0]
 	var position *PositionStruct
-	//paths : 未放置的碎片
-	for len(paths) > 0 {
-		this.logIfDebug("现在paths长度:", len(paths))
+	//this.paths : 未放置的碎片
+	for len(this.paths) > 0 {
+		this.logIfDebug("现在paths长度:", len(this.paths))
 		var placed []*PolygonStruct
 		var placements = []*PositionStruct{}
-		//paths 有关
+		//this.paths 有关
 		fitness += 1 // add 1 for each new bin opened (lower fitness is better)
-		for i := 0; i < len(paths); i++ {
-			path := paths[i]
+		for i := 0; i < len(this.paths); i++ {
+			path := this.paths[i]
 			if path.isWart {
 				//如果是瑕疵，就不移动
 				placements = append(placements, &PositionStruct{
@@ -122,13 +119,13 @@ func (this *PlacementWorkerStruct) placePaths(paths []*PolygonStruct) *placement
 
 			// inner NFP
 			//该part对bin对npf
-			myKey := GenPairKey(&PolygonStruct{id: -1}, path, true, 0, path.rotation)
+			myKey := GenPairKey(this.binPolygons[0], path, true, 0, path.rotation)
 			key := myKey.ToString()
 			binNfp, isOK := this.nfpCache[key]
 			// part unplaceable, skip
 			if !isOK || len(binNfp) == 0 {
 				//不可放置的碎片
-				log.Println("出现未知NPF")
+				log.Println("出现未知NPF:", myKey.ToString())
 				continue
 			}
 			// ensure all necessary NFPs exist
@@ -184,14 +181,10 @@ func (this *PlacementWorkerStruct) placePaths(paths []*PolygonStruct) *placement
 			for j := 0; j < len(placed); j++ {
 				//已放置多边形 和 该零件的 可放置 可行域 的关系
 				keyPair := GenPairKey(placed[j], path, false, placed[j].rotation, path.rotation)
-				if path.typeID == 9999 && path.rotation != 0 {
-					log.Println("不该有的旋转")
-					panic("")
-				}
 				key := keyPair.ToString()
 				nfp, isOK := this.nfpCache[key]
 				if !isOK {
-					log.Println("出现未知NPF")
+					log.Println("出现未知NPF:", keyPair.ToString())
 					continue
 				}
 				this.logIfDebug("取出 key:", key)
@@ -254,7 +247,7 @@ func (this *PlacementWorkerStruct) placePaths(paths []*PolygonStruct) *placement
 			if len(finalNfpBeforeClean) == 0 {
 				log.Println("!!!!!出现 len(finalNfpBeforeClean) ==0")
 				//出现这个表示无处安放
-				continue
+				return nil, CanNotPutErr
 			}
 			///此处必须清理！！
 			var finalNfp = []IntPolygon{}
@@ -312,14 +305,14 @@ func (this *PlacementWorkerStruct) placePaths(paths []*PolygonStruct) *placement
 
 		for ii := 0; ii < len(placed); ii++ {
 			newPaths := []*PolygonStruct{}
-			for pathsIndex := range paths {
-				if paths[pathsIndex] == placed[ii] {
+			for pathsIndex := range this.paths {
+				if this.paths[pathsIndex] == placed[ii] {
 
 				} else {
-					newPaths = append(newPaths, paths[pathsIndex])
+					newPaths = append(newPaths, this.paths[pathsIndex])
 				}
 			}
-			paths = newPaths
+			this.paths = newPaths
 		}
 
 		if len(placements) > 0 {
@@ -329,7 +322,7 @@ func (this *PlacementWorkerStruct) placePaths(paths []*PolygonStruct) *placement
 		}
 	}
 	//剩余碎片 有关
-	fitness += 2 * float64(len(paths))
+	fitness += 2 * float64(len(this.paths))
 	//结果不是最佳结果 ？  为什么
-	return &placementsStruct{Placements: allplacements, fitness: fitness, paths: paths, area: binarea}
+	return &placementsStruct{Placements: allplacements, fitness: fitness, placedPaths: [][]*PolygonStruct{this.paths}, binArea: []float64{binarea}}, nil
 }

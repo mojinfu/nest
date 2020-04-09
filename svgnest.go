@@ -197,14 +197,19 @@ func (this *PolyNode) rotatePolygon(degrees int) {
 	}
 }
 func (myPairPolygon *PolygonStruct) rotatePolygon(degrees int) {
+	if myPairPolygon.rotation == degrees {
+		return
+	}
 	myPairPolygon.rotation = degrees
 	myPairPolygon.RootPoly.rotatePolygon(degrees)
 }
 
 type SVG struct {
 	typeIDIndex      int
+	idIndex          int
 	parts            []*PolygonStruct
 	bins             []*PolygonStruct
+	warts            [][]*PolygonStruct
 	debugnfp         [][]*Point
 	debugnfpList     [][]*Point
 	debugnfpList2    [][]*Point
@@ -220,12 +225,12 @@ type SVG struct {
 	// RunTimeOut        int
 	lastDrawedFitness float64
 	GA                *GAStruct
-	tree              []*PolygonStruct
-	bin               *BinPolygonStruct
-	maxX              int64
-	maxY              int64
+	//tree              []*PolygonStruct
+	//bin               *BinPolygonStruct
+	maxX []int64
+	maxY []int64
 	//BestCSV           string
-	PaperList      map[int]*Paper
+	PaperList      map[int][]*Paper
 	DrawedPaperNum int
 	runID          string
 	runStartAt     time.Time
@@ -255,6 +260,9 @@ func NewSVG(config *ConfigStruct) *SVG {
 			//LoopMaxNum: loopMaxNum,
 		}
 	}
+	if config.CanNotPutLoopMaxNum <= 0 {
+		config.CanNotPutLoopMaxNum = 100
+	}
 	if config.WidthWeight <= 0 {
 		config.WidthWeight = 1
 	}
@@ -268,7 +276,7 @@ func NewSVG(config *ConfigStruct) *SVG {
 	log.Println("长权重：", this.LengthWeight)
 	log.Println("宽权重：", this.WidthWeight)
 	this.DrawedPaperNum = 0
-	this.PaperList = make(map[int]*Paper, 10)
+	this.PaperList = make(map[int][]*Paper, 10)
 	if this.config.RunTimeOut <= 0 {
 		this.config.RunTimeOut = 20
 	}
@@ -285,15 +293,26 @@ func NewSVG(config *ConfigStruct) *SVG {
 // 	this.config = config
 // }
 func (this *SVG) GetPolByID(id int) *PolygonStruct {
-
-	for index := range this.tree {
-		if this.tree[index].id == id {
-			return this.tree[index]
+	for index := range this.parts {
+		if this.parts[index].id == id {
+			return this.parts[index]
+		}
+	}
+	for index := range this.bins {
+		if this.bins[index].id == id {
+			return this.bins[index]
+		}
+	}
+	for binIndex := range this.warts {
+		for index := range this.warts[binIndex] {
+			if this.warts[binIndex][index].id == id {
+				return this.warts[binIndex][index]
+			}
 		}
 	}
 	return nil
 }
-func (this *SVG) Draw(bin *PolygonStruct, i int) {
+func (this *SVG) Draw(i int) {
 	if this.Best == nil {
 		return
 	}
@@ -305,31 +324,10 @@ func (this *SVG) Draw(bin *PolygonStruct, i int) {
 	//	this.BestCSV = "下料批次,零件号,面料号,零件外轮廓线坐标\n"
 	fmt.Printf("%f-->%f\n", this.lastDrawedFitness, this.Best.fitness)
 	myPaper := this.NewPaper()
-	myPaper.AddPolygon(bin.RootPoly.OriginPolygon, false)
-	myPaper.AddPolygon(this.bin.myPolygon, false)
-	myDebugPaper2 := this.NewPaper()
-	for index := range this.debugnfp {
-		myDebugPaper2.AddDebugNFP(this.debugnfp[index])
+	for index := range this.bins {
+		myPaper[index].AddPolygon(this.bins[index].RootPoly.OriginPolygon, false)
 	}
-	if len(this.debugnfp) != 0 {
-		myDebugPaper2.Draw("finalNFP" + name)
-	}
-	myDebugPaper := this.NewPaper()
-	for index := range this.debugnfpList {
-		myDebugPaper.AddDebugNFP(this.debugnfpList[index])
-		myPaper.AddPolygon(this.debugnfpList[index], false)
-	}
-	if len(this.debugnfpList) != 0 {
-		myDebugPaper.Draw("NFPs" + name)
-	}
-	myDebugPaper3 := this.NewPaper()
-	for index := range this.debugnfpList2 {
-		myDebugPaper3.AddDebugNFP(this.debugnfpList2[index])
-	}
-	if len(this.debugnfpList2) != 0 {
-		myDebugPaper3.Draw("debugnfpList2" + name)
-	}
-	myPaper.AddPolygon(bin.RootPoly.OriginPolygon, false) //如果起始点不为0  需要平移  todo
+
 	for i := range this.Best.Placements {
 		for j := range this.Best.Placements[i] {
 			this.logIfDebug("id:", this.Best.Placements[i][j].id)
@@ -345,11 +343,10 @@ func (this *SVG) Draw(bin *PolygonStruct, i int) {
 			myPol.TranslateToEndPolygon(this.Best.Placements[i][j].x, this.Best.Placements[i][j].y)
 			this.logIfDebug("translate x:", this.Best.Placements[i][j].x)
 			this.logIfDebug("translate y:", this.Best.Placements[i][j].y)
-			myPaper.AddPolygon(myPol.RootPoly.EndPolygon, myPol.isWart)
 			if myPol.isWart {
-				myPaper.AddPolygon(myPol.RootPoly.OriginPolygon, myPol.isWart)
+				myPaper[i].AddPolygon(myPol.RootPoly.OriginPolygon, myPol.isWart)
 			} else {
-
+				myPaper[i].AddPolygon(myPol.RootPoly.EndPolygon, myPol.isWart)
 			}
 			if !myPol.isWart {
 				//this.BestCSV = this.BestCSV + fmt.Sprintf("%s,%s,%s,\"%s\"\n", myPol.XiaLiaoPiCi, myPol.Name, myPol.MianLiaoHao, getSvcPointListFmt(myPol.RootPoly.EndPolygon))
@@ -359,7 +356,10 @@ func (this *SVG) Draw(bin *PolygonStruct, i int) {
 	this.PaperList[i] = myPaper
 	this.DrawedPaperNum++
 	if this.config.IfDraw {
-		myPaper.Draw(name)
+		for index := range myPaper {
+			myPaper[index].Draw(name + fmt.Sprintf("_%d", index))
+		}
+
 	}
 	this.lastDrawedFitness = this.Best.fitness
 }
@@ -492,7 +492,6 @@ func (this *SVG) getPartsWithInfo(paths []*PolygonStruct) []*PolygonStruct {
 		// paths[i].source = i
 	}
 	// turn the list into a tree
-	GenId(paths, 0)
 	return paths
 }
 
@@ -524,14 +523,6 @@ func (this *SVG) getPartsWithInfo(paths []*PolygonStruct) []*PolygonStruct {
 
 // 	return polygons
 // }
-
-func GenId(list []*PolygonStruct, idstart int) int {
-	for index := range list {
-		list[index].id = idstart
-		idstart++
-	}
-	return idstart
-}
 
 // func toTree(list []*PolygonStruct, idstart int) int {
 // 	var parents = []*PolygonStruct{}
@@ -634,6 +625,21 @@ func (this *PolyNode) offsetTree(offset float64, offsetFunction func(myPolygon P
 		this.children[index].offsetTree(-offset, offsetFunction)
 	}
 }
+
+func (this *PolyNode) copyBeforeToAfter() {
+	newAfter := []*Point{}
+	for index := range this.polygonBeforeRotation {
+		newAfter = append(newAfter, &Point{
+			X: this.polygonBeforeRotation[index].X,
+			Y: this.polygonBeforeRotation[index].Y,
+		})
+	}
+	this.polygonAfterRotaion = newAfter
+	for index := range this.children {
+		this.children[index].copyBeforeToAfter()
+	}
+}
+
 func (this *SVG) offsetTree(t []*PolygonStruct, offset float64, offsetFunction func(myPolygon Polygon, offset float64) [][]*Point) {
 	for i := 0; i < len(t); i++ {
 		t[i].RootPoly.offsetTree(offset, offsetFunction)
@@ -646,7 +652,7 @@ func (this *SVG) GetRunStartAt() time.Time {
 func (this *SVG) GetRunEndAt() *time.Time {
 	return this.runEndAt
 }
-func (this *SVG) Start() {
+func (this *SVG) Start() error {
 	defer func() {
 		// if r := recover(); r != nil {
 		// 	fmt.Printf("SVG Start 捕获到的错误：%s\n", r)
@@ -655,115 +661,127 @@ func (this *SVG) Start() {
 		this.runEndAt = &now
 	}() //saya 错误处理
 	if len(this.bins) == 0 {
-		panic("")
+		return WithoutBinErr
+	}
+	if len(this.parts) == 0 {
+		return WithoutPartsErr
 	}
 	this.nfpCache = make(map[string][][]*Point, 10000)
 	this.runStartAt = time.Now()
-	this.bins[0].CleanPolygon(-1)
+	/*----*/
 	for index := range this.parts {
 		this.parts[index].CleanPolygon(-1)
 	}
-
-	tree := this.getPartsWithInfo(this.parts)
+	for index := range this.bins {
+		this.bins[index].CleanPolygon(-1)
+	}
+	for i := range this.warts {
+		for j := range this.warts[i] {
+			this.warts[i][j].CleanPolygon(-1)
+		}
+	}
+	/*----*/
+	tree := this.parts
 	this.offsetTree(tree, 0.5*this.config.PartPartSpacing, this.polygonOffset) //先0空隙 saya
-	if len(this.bins[0].RootPoly.polygonBeforeRotation) < 3 || len(this.bins[0].RootPoly.polygonAfterRotaion) < 3 {
-		panic("len(this.bins[0].polygonBeforeRotation) ")
-	}
-	binPolygon := &BinPolygonStruct{
-		myPolygon: this.bins[0].RootPoly.polygonBeforeRotation,
-	}
-	if this.config.PartPartSpacing > 0 || this.config.BinPartSpacing > 0 {
-		temp := &PolygonStruct{
-			RootPoly: &PolyNode{
-				polygonBeforeRotation: binPolygon.myPolygon,
-			},
-		}
-		log.Println("0.5*this.config.PartPartSpacing-0.5*this.config.BinPartSpacing:", 0.5*this.config.PartPartSpacing-0.5*this.config.BinPartSpacing)
-		//var offsetBin = this.polygonOffset(temp.polygon, 0.5*this.config.PartPartSpacing-0.5*this.config.BinPartSpacing) //轮廓 saya
-		var offsetBin = this.polygonOffset(temp.RootPoly.polygonBeforeRotation, 0.1*this.config.PartPartSpacing-0.1*this.config.BinPartSpacing) //轮廓 saya
-		if len(offsetBin) == 1 {
-			// if the offset contains 0 or more than 1 path, something went wrong.
-			binPolygon.myPolygon = offsetBin[0]
-			//	offsetBin = []Polygon{}
-		}
-	}
-
-	binPolygon.id = -1
-
-	// put bin on origin
-	var xbinmax = binPolygon.myPolygon[0].X
-	var xbinmin = binPolygon.myPolygon[0].X
-	var ybinmax = binPolygon.myPolygon[0].Y
-	var ybinmin = binPolygon.myPolygon[0].Y
-
-	for i := 1; i < len(binPolygon.myPolygon); i++ {
-		if binPolygon.myPolygon[i].X > xbinmax {
-			xbinmax = binPolygon.myPolygon[i].X
-		} else if binPolygon.myPolygon[i].X < xbinmin {
-			xbinmin = binPolygon.myPolygon[i].X
-		}
-		if binPolygon.myPolygon[i].Y > ybinmax {
-			ybinmax = binPolygon.myPolygon[i].Y
-		} else if binPolygon.myPolygon[i].Y < ybinmin {
-			ybinmin = binPolygon.myPolygon[i].Y
-		}
-	}
-	//让bin 回到原点  （可能点不在原点）
-	for i := 0; i < len(binPolygon.myPolygon); i++ {
-		binPolygon.myPolygon[i].X -= xbinmin
-		binPolygon.myPolygon[i].Y -= ybinmin
-	}
-
-	binPolygon.width = xbinmax - xbinmin
-	binPolygon.height = ybinmax - ybinmin
-	this.maxX = int64(xbinmax)
-	this.maxY = int64(ybinmax)
-	//确立坐标轴
-	// all paths need to have the same winding direction
-	if polygonArea(binPolygon.myPolygon) > 0 {
-		binPolygon.myPolygon = PolygonReverse(binPolygon.myPolygon)
-	}
-
 	// remove duplicate endpoints, ensure counterclockwise winding direction
 	for i := 0; i < len(tree); i++ {
 		var start = tree[i].RootPoly.polygonBeforeRotation[0]
 		var end = tree[i].RootPoly.polygonBeforeRotation[len(tree[i].RootPoly.polygonBeforeRotation)-1]
 		if start == end || (_almostEqual2(start.X, end.X) && _almostEqual2(start.Y, end.Y)) {
-			newTree := []*PolygonStruct{}
-			for ii := range tree {
-				if ii != i {
-					newTree = append(newTree, tree[ii])
-				} else {
-
-				}
-			}
-			tree = newTree
-		} else {
-			if polygonArea(tree[i].RootPoly.polygonBeforeRotation) > 0 {
-				tree[i].RootPoly.polygonBeforeRotation = PolygonReverse(tree[i].RootPoly.polygonBeforeRotation)
-			} //saya
+			tree[i].RootPoly.polygonBeforeRotation = tree[i].RootPoly.polygonBeforeRotation[1:]
+		}
+		if polygonArea(tree[i].RootPoly.polygonBeforeRotation) > 0 {
+			tree[i].RootPoly.polygonBeforeRotation = PolygonReverse(tree[i].RootPoly.polygonBeforeRotation)
 		}
 
 	}
+	for index := range tree {
+		if len(tree[index].RootPoly.polygonBeforeRotation) == 0 {
+			return InvalidPoly
+		} else {
+			tree[index].RootPoly.copyBeforeToAfter()
+		}
+	}
+	/*----*/
+	for i := range this.warts {
+		this.offsetTree(this.warts[i], 0.5*this.config.PartPartSpacing, this.polygonOffset) //先0空隙 saya
+		for j := range this.warts[i] {
+			this.warts[i][j].RootPoly.copyBeforeToAfter()
+		}
+	}
+	/*----*/
+	for index := range this.bins {
+		if this.config.PartPartSpacing > 0 || this.config.BinPartSpacing > 0 {
+			var offsetBin = this.polygonOffset(this.bins[index].RootPoly.polygonBeforeRotation, 0.5*this.config.PartPartSpacing-0.5*this.config.BinPartSpacing) //轮廓 saya
+			if len(offsetBin) == 1 {
+				this.bins[index].RootPoly.polygonBeforeRotation = offsetBin[0]
+			} else {
+				panic("")
+			}
+		}
+
+		var xbinmax = this.bins[index].RootPoly.polygonBeforeRotation[0].X
+		var xbinmin = this.bins[index].RootPoly.polygonBeforeRotation[0].X
+		var ybinmax = this.bins[index].RootPoly.polygonBeforeRotation[0].Y
+		var ybinmin = this.bins[index].RootPoly.polygonBeforeRotation[0].Y
+
+		for i := 1; i < len(this.bins[index].RootPoly.polygonBeforeRotation); i++ {
+			if this.bins[index].RootPoly.polygonBeforeRotation[i].X > xbinmax {
+				xbinmax = this.bins[index].RootPoly.polygonBeforeRotation[i].X
+			} else if this.bins[index].RootPoly.polygonBeforeRotation[i].X < xbinmin {
+				xbinmin = this.bins[index].RootPoly.polygonBeforeRotation[i].X
+			}
+			if this.bins[index].RootPoly.polygonBeforeRotation[i].Y > ybinmax {
+				ybinmax = this.bins[index].RootPoly.polygonBeforeRotation[i].Y
+			} else if this.bins[index].RootPoly.polygonBeforeRotation[i].Y < ybinmin {
+				ybinmin = this.bins[index].RootPoly.polygonBeforeRotation[i].Y
+			}
+		}
+		// //让bin 回到原点  （可能点不在原点）
+		// for i := 0; i < len(this.bins[index].RootPoly.polygonBeforeRotation); i++ {
+		// 	this.bins[index].RootPoly.polygonBeforeRotation[i].X -= xbinmin
+		// 	this.bins[index].RootPoly.polygonBeforeRotation[i].Y -= ybinmin
+		// }
+
+		this.bins[index].width = xbinmax - xbinmin
+		this.bins[index].height = ybinmax - ybinmin
+		this.maxX = append(this.maxX, int64(xbinmax)+int64(0.5*this.config.BinPartSpacing-0.5*this.config.PartPartSpacing))
+		this.maxY = append(this.maxY, int64(ybinmax)+int64(0.5*this.config.BinPartSpacing-0.5*this.config.PartPartSpacing))
+		//确立坐标轴
+		// all paths need to have the same winding direction
+		if polygonArea(this.bins[index].RootPoly.polygonBeforeRotation) > 0 {
+			this.bins[index].RootPoly.polygonBeforeRotation = PolygonReverse(this.bins[index].RootPoly.polygonBeforeRotation)
+		}
+		this.bins[index].RootPoly.copyBeforeToAfter()
+	}
+
 	this.working = false
 	if this.config == nil {
 		this.config = PublicConfig
 	}
-	this.tree = tree
-	this.bin = binPolygon
-	for i := 0; i < this.config.LoopMaxNum && time.Now().Before(this.runStartAt.Add(time.Second*time.Duration(this.config.RunTimeOut))); i++ {
-		//for i := 0; i < this.config.LoopMaxNum; i++ {
+	//this.tree = tree
+	var err error = CanNotPutErr
+	canNotPutNum := 0
+	for i := 0; i < this.config.LoopMaxNum && time.Now().Before(this.runStartAt.Add(time.Second*time.Duration(this.config.RunTimeOut))) && canNotPutNum < this.config.CanNotPutLoopMaxNum; i++ {
 		if this.isNeedStopLoop {
 			break
 		}
 		if !this.working {
-			this.logIfDebug("all npf len:", len(this.nfpCache))
-			this.launchWorkers(tree, binPolygon)
-			this.Draw(this.bins[0], i)
+			_, errWork := this.launchWorkers()
+			if errWork == CanNotPutErr && err == CanNotPutErr {
+				canNotPutNum++
+			}
+			if errWork != nil {
+				time.Sleep(time.Millisecond * 500)
+			} else {
+				this.Draw(i)
+				err = nil
+			}
 		} else {
 			time.Sleep(time.Second * 1)
 		}
 	}
+	return err
 }
 func (this *SVG) GetOrCreateNFP(pairKey *PairKeyStruct, ANotInTree *PolygonStruct, BNotInTree *PolygonStruct) [][]*Point {
 	var key = pairKey.ToString()
@@ -794,28 +812,26 @@ func (this *SVG) GetOrCreateNFP(pairKey *PairKeyStruct, ANotInTree *PolygonStruc
 func GenPairKey(A *PolygonStruct, B *PolygonStruct, inside bool, Arotation int, Brotation int) *PairKeyStruct {
 	AKey := 0
 	BKey := 0
-	if A.typeID <= 0 {
+	if true {
 		AKey = A.id
 	} else {
 		AKey = A.typeID
 	}
-	if B.typeID <= 0 {
+	if true {
 		BKey = B.id
 	} else {
 		BKey = B.typeID
 	}
 	return &PairKeyStruct{A: AKey, B: BKey, inside: inside, Arotation: Arotation, Brotation: Brotation}
 }
-func (this *SVG) launchWorkers(tree []*PolygonStruct, binPolygon *BinPolygonStruct) *placementsStruct {
-	//var GA *GAStruct
+func (this *SVG) launchWorkers() (*placementsStruct, error) {
 	if this.GA == nil {
 		// initiate new GA
-		adam := tree[:]
+		adam := this.parts[:]
 		sort.Sort(PolygonStructSlice(adam)) //saya  此处必须要排序
-		this.GA = this.NewGeneticAlgorithm(adam, binPolygon, this.config)
+		this.GA = this.NewGeneticAlgorithm(adam, this.bins, this.config)
 	}
 	var individual *populationStruct = nil
-	//this.logIfDebug(GA)
 	// // evaluate all members of the population
 	for i := 0; i < len(this.GA.population); i++ {
 		if this.GA.population[i].fitness == defaultfitness {
@@ -827,142 +843,126 @@ func (this *SVG) launchWorkers(tree []*PolygonStruct, binPolygon *BinPolygonStru
 	if individual == nil {
 		// all individuals have been evaluated, start next generation
 		this.GA.generation()
-		individual = this.GA.population[1] //saya ?
+		individual = this.GA.population[1]
 	}
 	var placelist = individual.placement
-	var Rotations = individual.rotation
-	var ids []int
-	for i := 0; i < len(placelist); i++ {
-		ids = append(ids, placelist[i].id)
-		placelist[i].rotation = Rotations[i]
+	var rotations = individual.rotation
+
+	nfpPairs := this.GenPairs(placelist, rotations)
+	//以上  两两组合 生产 nfp
+	this.multiThreadingBuildNfp(nfpPairs)
+	worker := this.NewPlacementWorker(this.bins, placelist[:], this.warts, rotations, this.config, this.nfpCache)
+	this.setNFPToWorker(nfpPairs, worker)
+	myplacements, err := worker.newPlacePaths()
+	if err != nil {
+		return nil, err
 	}
+	// for i := range myplacements.Placements {
+	// 	for j := range myplacements.Placements[i] {
+	// 		log.Println("x:", myplacements.Placements[i][j])
+	// 	}
+	// }
+	individual.fitness = myplacements.fitness
+	this.WhenWorkerPlacePathsSuccess(myplacements)
+	return myplacements, nil
+}
+func (this *SVG) GenPairs(placelist []*PolygonStruct, rotations []int) []*pairStruct {
 	nfpPairs := []*pairStruct{}
 	//两两组合点结构体 包含了npf
 	var key *PairKeyStruct
 	//两两组合点结构体 不包含npf
-	newCache := map[string][][]*Point{}
+	//newCache := map[string][][]*Point{}
 	for i := 0; i < len(placelist); i++ {
-		var part = placelist[i]
-		key = GenPairKey(
-			&PolygonStruct{
-				id: binPolygon.id,
-			},
-			part, true, 0, Rotations[i])
-
-		if _, isOK := this.nfpCache[key.ToString()]; !isOK {
-			temp := &PolygonStruct{
-				RootPoly: &PolyNode{
-					polygonBeforeRotation: binPolygon.myPolygon,
-					polygonAfterRotaion:   binPolygon.myPolygon,
-				},
-				id:     binPolygon.id,
-				width:  binPolygon.width,
-				height: binPolygon.height,
-				// Name: binPolygon.Name,
-				// isWart:      binPolygon.isWart,
-			} //copy
-			nfpPairs = append(nfpPairs, &pairStruct{A: temp, B: part, key: key})
-		} else {
-			newCache[key.ToString()] = this.nfpCache[key.ToString()]
+		for binIndex := 0; binIndex < len(this.warts); binIndex++ {
+			for j := 0; j < len(this.warts[binIndex]); j++ {
+				key = GenPairKey(
+					this.warts[binIndex][j],
+					placelist[i],
+					false, 0, rotations[i])
+				if _, isOK := this.nfpCache[key.ToString()]; !isOK {
+					nfpPairs = append(nfpPairs, &pairStruct{A: this.warts[binIndex][j], B: placelist[i], key: key})
+				}
+			}
 		}
-		for j := 0; j < i; j++ {
-			var placed = placelist[j]
-			key = GenPairKey(placed, part, false, Rotations[j], Rotations[i])
+	}
+	for i := 0; i < len(placelist); i++ {
+		for j := 0; j < len(this.bins); j++ {
+			var part = placelist[i]
+			key = GenPairKey(
+				this.bins[j],
+				part, true, 0, rotations[i])
 			if _, isOK := this.nfpCache[key.ToString()]; !isOK {
-				if part.isWart {
-					continue
-				} else {
+				nfpPairs = append(nfpPairs, &pairStruct{A: this.bins[j], B: part, key: key})
+			}
+			for j := 0; j < i; j++ {
+				var placed = placelist[j]
+				key = GenPairKey(placed, part, false, rotations[j], rotations[i])
+				if _, isOK := this.nfpCache[key.ToString()]; !isOK {
 					nfpPairs = append(nfpPairs, &pairStruct{A: placed, B: part, key: key})
 				}
-			} else {
-				newCache[key.ToString()] = this.nfpCache[key.ToString()]
 			}
 		}
 	}
-	//以上  两两组合 生产 nfp
-	//this.nfpCache = newCache//saya ?
-	worker := this.NewPlacementWorker(binPolygon, placelist[:], ids, Rotations, this.config, this.nfpCache)
-	WhenWorkerPlacePathsSuccess := func(placements []*placementsStruct) {
-
-		if len(placements) == 0 {
-			return
-		}
-
-		individual.fitness = placements[0].fitness
-		var bestresult = placements[0]
-
-		for i := 1; i < len(placements); i++ {
-			if placements[i].fitness < bestresult.fitness {
-				bestresult = placements[i]
-			}
-		}
-
-		if this.Best == nil || bestresult.fitness < this.Best.fitness {
-			this.Best = bestresult
-
-			var placedArea float64
-			var totalArea float64
-			//var numParts = len(placelist)
-			var numPlacedParts = 0
-
-			for i := 0; i < len(this.Best.Placements); i++ {
-				totalArea += math.Abs(polygonArea(binPolygon.myPolygon))
-				for j := 0; j < len(this.Best.Placements[i]); j++ {
-					placedArea += math.Abs(polygonArea(tree[this.Best.Placements[i][j].id].RootPoly.polygonBeforeRotation))
-					numPlacedParts++
-				}
-			}
-			//	displayCallback(self.applyPlacement(this.Best.Placements), placedArea/totalArea, numPlacedParts, numParts)//图形化todo
-		} else {
-			//	displayCallback()//图形化todo
-		}
-		this.working = false
+	return nfpPairs
+}
+func (this *SVG) WhenWorkerPlacePathsSuccess(placement *placementsStruct) {
+	if placement == nil {
+		return
 	}
-
-	WhenMapNpfPairListSuccess := func(generatedNfp []*pairStruct) *placementsStruct {
-		if generatedNfp != nil {
-			for i := 0; i < len(generatedNfp); i++ {
-				var Nfp = generatedNfp[i]
-				if Nfp != nil {
-					// a null nfp means the nfp could not be generated, either because the parts simply don't fit or an error in the nfp algo
-					var key = Nfp.key.ToString()
-					this.nfpCache[key] = Nfp.value
-					if this.config.IfDebug {
-						this.logIfDebug("放入 key:", key)
-						for index := range Nfp.value {
-							log.Println("第", index, "个NFP")
-							for j := range Nfp.value[index] {
-								log.Printf("(%f,%f)", Nfp.value[index][j].X, Nfp.value[index][j].Y)
-							}
-							log.Printf("\n")
-							//this.logIfDebug(Nfp.value[index])
+	// var bestresult = placements[0]
+	// for i := 1; i < len(placements); i++ {
+	// 	if placements[i].fitness < bestresult.fitness {
+	// 		bestresult = placements[i]
+	// 	}
+	// }
+	if this.Best == nil || placement.fitness < this.Best.fitness {
+		this.Best = placement
+		// var placedArea float64
+		// var totalArea float64
+		// //var numParts = len(placelist)
+		// var numPlacedParts = 0
+		// for i := 0; i < len(this.Best.Placements); i++ {
+		// 	totalArea += math.Abs(polygonArea(binPolygon.RootPoly.polygonBeforeRotation))
+		// 	for j := 0; j < len(this.Best.Placements[i]); j++ {
+		// 		placedArea += math.Abs(polygonArea(tree[this.Best.Placements[i][j].id].RootPoly.polygonBeforeRotation))
+		// 		numPlacedParts++
+		// 	}
+		// }
+		//	displayCallback(self.applyPlacement(this.Best.Placements), placedArea/totalArea, numPlacedParts, numParts)//图形化todo
+	} else {
+		//	displayCallback()//图形化todo
+	}
+	this.working = false
+}
+func (this *SVG) setNFPToWorker(nfpPairs []*pairStruct, worker *PlacementWorkerStruct) {
+	if nfpPairs != nil {
+		for i := 0; i < len(nfpPairs); i++ {
+			var Nfp = nfpPairs[i]
+			if Nfp != nil {
+				// a null nfp means the nfp could not be generated, either because the parts simply don't fit or an error in the nfp algo
+				var key = Nfp.key.ToString()
+				this.nfpCache[key] = Nfp.value
+				if this.config.IfDebug {
+					this.logIfDebug("放入 key:", key)
+					for index := range Nfp.value {
+						log.Println("第", index, "个NFP")
+						for j := range Nfp.value[index] {
+							log.Printf("(%f,%f)", Nfp.value[index][j].X, Nfp.value[index][j].Y)
 						}
+						log.Printf("\n")
+						//this.logIfDebug(Nfp.value[index])
 					}
 				}
 			}
 		}
-		worker.nfpCache = this.nfpCache
-		//placelist是所有part
-		myplacements := worker.placePaths(placelist)
-		WhenWorkerPlacePathsSuccess([]*placementsStruct{myplacements})
-		return myplacements
 	}
-	this.multiThreadingBuildNfp(nfpPairs)
-	// NPFNum := 0
-	// //myPairList := []*pairStruct{}
-	// for index := range nfpPairs {
-	// 	NPFNum++
-	// 	log.Println("NPFNum:", NPFNum)
-	// 	this.MapNfpPairsList(nfpPairs[index])
-	// }
-	return WhenMapNpfPairListSuccess(nfpPairs)
+	worker.nfpCache = this.nfpCache
 }
 func (this *SVG) multiThreadingBuildNfp(pairList []*pairStruct) {
 	if this.config.MutilThread <= 0 {
 		this.config.MutilThread = 1
 	}
 	var wg sync.WaitGroup
-
 	for i := 0; i < this.config.MutilThread; i++ {
 		wg.Add(1)
 		go this.threadingBuildNfp(i, pairList, &wg)
@@ -980,19 +980,15 @@ func (this *SVG) threadingBuildNfp(threadID int, pairList []*pairStruct, wg *syn
 	wg.Done()
 }
 func (this *SVG) MapNfpPairsList(pair *pairStruct) {
-
 	if pair == nil {
 		return //saya 可能有问题  pair.length == 0
 	}
-
 	var searchEdges = this.config.ExploreConcave
 	//var UseHoles = config.UseHoles
 	//fmt.Println("A rotation :", pair.key.Arotation)
 	pair.A.rotatePolygon(pair.key.Arotation)
-
 	//fmt.Println("B rotation :", pair.key.Brotation)
 	pair.B.rotatePolygon(pair.key.Brotation)
-
 	nfp := [][]*Point{}
 	if pair.key.inside {
 		if isRectangle(pair.A.RootPoly.polygonAfterRotaion, 0.001) {
@@ -1009,13 +1005,11 @@ func (this *SVG) MapNfpPairsList(pair *pairStruct) {
 					nfp[i] = PolygonReverse(nfp[i])
 				}
 			}
-		} else {
-			// warning on nil inner NFP
-			// this is not an error, as the part may simply be larger than the bin or otherwise unplaceable due to geometry
-			this.logIfDebug("NFP Warning: ", pair.key)
 		}
 		if len(nfp) == 0 {
-			panic("") //saya
+			log.Printf("%+v\n", pair.A.RootPoly.String())
+			log.Printf("%+v\n", pair.B.RootPoly.String())
+			log.Println("nfp gen err:" + pair.key.ToString())
 		}
 	} else {
 		if searchEdges {
@@ -1034,11 +1028,6 @@ func (this *SVG) MapNfpPairsList(pair *pairStruct) {
 		for i := 0; i < len(nfp); i++ {
 			if !searchEdges || i == 0 { // if searchedges is active, only the first NFP is guaranteed to pass sanity check
 				if math.Abs(polygonArea(nfp[i])) < math.Abs(polygonArea(pair.A.RootPoly.polygonBeforeRotation)) {
-					// log('NFP Area Error: ', math.Abs(polygonArea(nfp[i])), pair.key);
-					// log('NFP:', (nfp[i])).ToString());
-					// log('A: ', (A).ToString());
-					// log('B: ', (B).ToString());
-
 					newNfp := [][]*Point{}
 					for index := range nfp {
 						if index == i {
@@ -1054,6 +1043,7 @@ func (this *SVG) MapNfpPairsList(pair *pairStruct) {
 			}
 		}
 		if len(nfp) == 0 {
+			//不应该return
 			return
 		}
 
@@ -1180,21 +1170,54 @@ func cnFang(x, y, x1, y1, x2, y2 float64) float64 {
 // 		panic("too close")
 // 	}
 // }
-func (this *SVG) SetBinPoly(part *PolygonStruct) {
+type Bin struct {
+	binIndex int
+	svg      *SVG
+}
+
+func (this *Bin) AddWart(part *PolygonStruct) *PolygonStruct {
+	log.Println("AddWart")
+	this.svg.typeIDIndex++
+	part.setTypeID(this.svg.typeIDIndex)
+	newPart := NewPoly(part.RootPoly.OriginPolygon)
+	newPart.SetAngelList([]int64{0})
+	newPart.setTypeID(this.svg.typeIDIndex)
+	newPart.SetName(part.Name)
+	newPart.isWart = true
+	this.svg.addWart(newPart, this.binIndex)
+	return newPart
+}
+func (this *SVG) addWart(newPart *PolygonStruct, binIndex int) {
+	this.idIndex++
+	newPart.id = this.idIndex
+	this.warts[binIndex] = append(this.warts[binIndex], newPart)
+}
+func (this *SVG) AddBinPoly(part *PolygonStruct) *Bin {
 	this.typeIDIndex++
 	part.setTypeID(this.typeIDIndex)
-
 	newPart := NewPoly(part.RootPoly.OriginPolygon)
 	newPart.SetAngelList(part.AngleList)
 	newPart.setTypeID(this.typeIDIndex)
 	newPart.SetName(part.Name)
-	newPart.isWart = part.isWart
+	newPart.isWart = false
+	return this.addBinPoly(newPart)
+}
+func (this *SVG) addBinPoly(newPart *PolygonStruct) *Bin {
+	this.idIndex++
+	newPart.id = this.idIndex
 	this.bins = append(this.bins, newPart)
-	if len(this.bins) != 1 {
-		panic("")
+	this.warts = append(this.warts, []*PolygonStruct{})
+	return &Bin{
+		binIndex: len(this.bins) - 1,
+		svg:      this,
 	}
 }
-func (this *SVG) AddPoly(part *PolygonStruct, num int) {
+func (this *SVG) addPart(newPart *PolygonStruct) {
+	this.idIndex++
+	newPart.id = this.idIndex
+	this.parts = append(this.parts, newPart)
+}
+func (this *SVG) AddPart(part *PolygonStruct, num int) int {
 	this.typeIDIndex++
 	part.setTypeID(this.typeIDIndex)
 	for i := 0; i < num; i++ {
@@ -1202,10 +1225,8 @@ func (this *SVG) AddPoly(part *PolygonStruct, num int) {
 		newPart.SetAngelList(part.AngleList)
 		newPart.setTypeID(this.typeIDIndex)
 		newPart.SetName(part.Name)
-		newPart.isWart = part.isWart
-		this.parts = append(this.parts, newPart)
+		newPart.isWart = false
+		this.addPart(newPart)
 	}
-}
-func (this *SVG) addPoly(part *PolygonStruct) {
-	this.parts = append(this.parts, part)
+	return this.typeIDIndex
 }

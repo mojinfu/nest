@@ -3,6 +3,7 @@ package nest
 import (
 	"log"
 	"math"
+	"fmt"
 	. "github.com/mojinfu/point"
 )
 
@@ -26,29 +27,12 @@ type PolyNode struct {
 	children []*PolyNode
 	parent   *PolyNode
 }
-
-type PolygonStruct1 struct {
-	OriginPolygon []*Point //原始多边形
-	polygon       []*Point //简化后 膨胀后的多边形
-	EndPolygon    []*Point //未简化 未膨胀  旋转 平移后的多边形
-	children []*PolygonStruct
-	parent   *PolygonStruct
-	id       int //全局唯一id
-	typeID   int //同一类型的  NFP 无需重复生成//但要注意这个字段可能没被初始化的  没被初始化 则用id代替
-//	source   int
-	width    float64
-	height   float64
-	rotation int
-
-	Name        string
-	isWart     bool
-	AngleList   []int64
-}
-type BinPolygonStruct struct {
-	myPolygon Polygon
-	height    float64
-	id        int
-	width     float64
+func (this *PolyNode)String()string{
+	str:=""
+	for index:=range this.polygonAfterRotaion{
+		str += fmt.Sprintf("(%v,%v)\n", this.polygonAfterRotaion[index].X,this.polygonAfterRotaion[index].Y)
+	}
+	return str
 }
 
 func CleanIntPolygon(this []*IntPoint, b float64) []*IntPoint {
@@ -215,14 +199,14 @@ func (this *PolygonStruct) CleanPolygon(b float64) {
 		c = 0
 	}
 	g := []*Point{}
-	g2 := []*Point{}
+	//g2 := []*Point{}
 	for f := 0; f < c; f++ {
 		g = append(g, &Point{X: eOutPt.Pt.X, Y: eOutPt.Pt.Y})
-		g2 = append(g2, &Point{X: eOutPt.Pt.X, Y: eOutPt.Pt.Y})
+		//g2 = append(g2, &Point{X: eOutPt.Pt.X, Y: eOutPt.Pt.Y})
 		eOutPt = eOutPt.Next
 	}
 	this.RootPoly.polygonBeforeRotation = g
-	this.RootPoly.polygonAfterRotaion = g2
+	//this.RootPoly.polygonAfterRotaion = g2
 }
 
 type PolygonStructSlice []*PolygonStruct
@@ -428,6 +412,7 @@ type ConfigStruct struct {
 	PartPartSpacing float64
 	BinPartSpacing  float64
 
+	CanNotPutLoopMaxNum int
 	LoopMaxNum   int
 	RunTimeOut   int
 	LengthWeight float64
@@ -449,6 +434,7 @@ var PublicConfig *ConfigStruct = &ConfigStruct{
 	IfDebug:         false,
 	PartPartSpacing: 50,
 	BinPartSpacing:  0,
+	CanNotPutLoopMaxNum :10,
 }
 
 type Path = []*Point
