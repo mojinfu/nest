@@ -6,6 +6,8 @@ import (
 	. "github.com/mojinfu/point"
 )
 
+var max float64
+
 func MinWidthAndAtLeft(path *PolygonStruct, finalNfpFloat [][]*Point, placed []*PolygonStruct, placements []*PositionStruct) (position *PositionStruct) {
 	var nf Path
 	var shiftvector *PositionStruct
@@ -15,7 +17,7 @@ func MinWidthAndAtLeft(path *PolygonStruct, finalNfpFloat [][]*Point, placed []*
 
 	for j := 0; j < len(finalNfpFloat); j++ {
 		nf = finalNfpFloat[j]
-		if math.Abs(polygonArea(nf)) < 2 {
+		if math.Abs(PolygonArea(nf)) < 2 {
 			continue
 		}
 
@@ -84,7 +86,7 @@ func MinWidthAndAtMinNfpLeft(path *PolygonStruct, finalNfpFloat [][]*Point, plac
 				id:            path.id,
 				rotation:      path.rotation,
 				finalNfpFloat: finalNfpFloat,
-				nfpArea:       math.Abs(polygonArea(finalNfpFloat[j])),
+				nfpArea:       math.Abs(PolygonArea(finalNfpFloat[j])),
 			}
 			//当前放置的
 			var pathPoints []*Point
@@ -92,7 +94,7 @@ func MinWidthAndAtMinNfpLeft(path *PolygonStruct, finalNfpFloat [][]*Point, plac
 				pathPoints = append(pathPoints, &Point{X: path.RootPoly.polygonAfterRotaion[m].X + shiftvector.x, Y: path.RootPoly.polygonAfterRotaion[m].Y + shiftvector.y})
 			}
 			pathRectbounds := getPolygonBounds(pathPoints)
-			if minWidth != nil && RecBoundSum(pathRectbounds, withoutPathRectbounds).width == *minWidth {
+			if minWidth != nil && _almostEqual3(RecBoundSum(pathRectbounds, withoutPathRectbounds).width, *minWidth, *minWidth/100) {
 				minWidthNfpPoints = append(minWidthNfpPoints, nf[k])
 				shiftvector.width = RecBoundSum(pathRectbounds, withoutPathRectbounds).width
 				shiftvector.height = RecBoundSum(pathRectbounds, withoutPathRectbounds).height
@@ -109,14 +111,29 @@ func MinWidthAndAtMinNfpLeft(path *PolygonStruct, finalNfpFloat [][]*Point, plac
 				continue
 			}
 		}
-
 	}
-	var minArea float64 = -1
-	var minAreaPointIndex int
+	//更小的nfp意味着放置更好
+	var minArea float64 = positionList[0].nfpArea
+	var minAreaPositionList []*PositionStruct
 	for index := range positionList {
-		if minArea < 0 || positionList[index].nfpArea < minArea {
-			minAreaPointIndex = index
+		if positionList[index].nfpArea < minArea {
+			minAreaPositionList = []*PositionStruct{positionList[index]}
+			minArea = positionList[index].nfpArea
+		} else if positionList[index].nfpArea == minArea {
+			minAreaPositionList = append(minAreaPositionList, positionList[index])
 		}
 	}
-	return positionList[minAreaPointIndex]
+	var minY *float64 = nil
+	var minIndex int = 0
+	for index := range minAreaPositionList {
+		if minY == nil {
+			minY = &minAreaPositionList[index].y
+			minIndex = index
+		} else if *minY > minAreaPositionList[index].y {
+			minY = &minAreaPositionList[index].y
+			minIndex = index
+		}
+	}
+	return minAreaPositionList[minIndex]
+	//return minAreaPositionList[rand.Intn(len(minAreaPositionList))]
 }

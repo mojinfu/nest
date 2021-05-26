@@ -75,7 +75,7 @@ func minkowskiDifference(A, B Polygon) [][]*Point {
 	clipperNfp := []*Point{}
 	for i := 0; i < len(solution); i++ {
 		n := toNestCoordinates(solution[i], clipperScaleTimes)
-		sarea := polygonArea(n)
+		sarea := PolygonArea(n)
 		if math.Abs(largestArea) < math.Abs(sarea) { //saya
 			clipperNfp = n
 			largestArea = sarea
@@ -103,15 +103,15 @@ func PointsAreClose(a, b *Point, c float64) bool {
 	al := a.Y - b.Y
 	return el*el+al*al <= c
 }
-func ExcludeOp(a *OutFloatPtStruct) *OutFloatPtStruct {
+func ExcludeOp(a *OutFloatPtStruct) {
 	var b = a.Prev
 	b.Next = a.Next
 	a.Next.Prev = b
 	b.Idx = 0
-	return b
+	return //todo saya 与原本不同
 }
 func SlopesNearCollinear(a, b, c *Point, e float64) bool {
-	return DistanceFromLineSqrd(b, a, c) < e
+	return DistanceFromLineSqrd(b, a, c) <= e
 }
 func DistanceFromLineSqrd(a, b, c *Point) float64 {
 	var el = b.Y - c.Y
@@ -282,4 +282,18 @@ func NewTEdge() *TEdgeStruct {
 		Dx:    0,
 	}
 
+}
+func CopyPoint(a *Point) *Point {
+	return &Point{
+		X:      a.X,
+		Y:      a.Y,
+		Marked: a.Marked,
+	}
+}
+func CopyPointList(a []*Point) []*Point {
+	b := []*Point{}
+	for i := range a {
+		b = append(b, CopyPoint(a[i]))
+	}
+	return b
 }

@@ -215,7 +215,7 @@ func (this *ClipperOffsetStruct) DoOffset(a float64) {
 					}
 				} else {
 					g := 0
-					//	this.m_normals = 0//saya !
+					this.m_normals = []*Point{}
 					for ; g < f-1; g++ {
 						this.m_normals = append(this.m_normals, this.GetUnitNormal(this.m_srcPoly[g], this.m_srcPoly[g+1]))
 					}

@@ -3,6 +3,7 @@ package nest
 import (
 	"log"
 	"math/rand"
+	"time"
 )
 
 func (this *GAStruct) logIfDebug(v ...interface{}) {
@@ -23,6 +24,8 @@ type placementsStruct struct {
 	fitness     float64
 	placedPaths [][]*PolygonStruct
 	binArea     []float64
+	MaxWidth    []float64
+	MaxHeigth   []float64
 }
 
 const defaultfitness float64 = 10000000
@@ -88,9 +91,9 @@ func (this *GAStruct) randomAngle(part *PolygonStruct) int {
 }
 func (this *SVG) NewGeneticAlgorithm(adam []*PolygonStruct, bin []*PolygonStruct, config *ConfigStruct) *GAStruct {
 	myGA := &GAStruct{}
-	//myGA.randomSeed = rand.New(rand.NewSource(time.Now().UnixNano()))//saya
+	myGA.randomSeed = rand.New(rand.NewSource(time.Now().UnixNano())) //saya
 
-	myGA.randomSeed = rand.New(rand.NewSource(3))
+	//myGA.randomSeed = rand.New(rand.NewSource(3))
 	myGA.config = config
 	for index := range bin {
 		myGA.binBounds = append(myGA.binBounds, getPolygonBounds(bin[index].RootPoly.polygonBeforeRotation))

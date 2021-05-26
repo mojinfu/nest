@@ -21,9 +21,10 @@ type polygonWithOffset struct {
 }
 type PolyNode struct {
 	OriginPolygon []*Point //原始多边形
+	CleanedPolygon []*Point //简化 未膨胀的多边形
 	polygonAfterRotaion       []*Point //简化后 膨胀后的多边形
 	polygonBeforeRotation       []*Point //简化后 膨胀后的多边形
-	EndPolygon    []*Point //未简化 未膨胀  旋转 平移后的多边形
+	EndPolygon    []*Point //简化后 未膨胀  旋转 平移后的多边形
 	children []*PolyNode
 	parent   *PolyNode
 }
@@ -37,10 +38,18 @@ func (this *PolyNode)String()string{
 
 func CleanIntPolygon(this []*IntPoint, b float64) []*IntPoint {
 
+	// if b < 0 {
+	// 	b = 1.415 //？ saya
+	// }
+	fFloat := 0.0
 	if b < 0 {
-		b = 1.415 //？ saya
+		rectbounds := getIntPolygonBounds(this) 
+		l:=rectbounds.height +rectbounds.width
+		fFloat= float64(l)/100.0
+		//b = 0.3 //？1.415 原始值 saya
+	}else{
+		fFloat = b * b
 	}
-
 	c := len(this)
 	if 0 == c {
 		return []*IntPoint{}
@@ -59,30 +68,44 @@ func CleanIntPolygon(this []*IntPoint, b float64) []*IntPoint {
 		pointChain[f].Idx = 0
 	}
 
-	fFloat := b * b
 	eOutPt := pointChain[0]
 	for 0 == eOutPt.Idx && eOutPt.Next != eOutPt.Prev {
 		if PointsAreClose(eOutPt.Pt, eOutPt.Prev.Pt, fFloat) {
-			eOutPt = ExcludeOp(eOutPt)
+			temp := eOutPt.Prev
+			ExcludeOp(eOutPt)
+			eOutPt = temp.Next
+			eOutPt.Idx = 0
 			c = c - 1
+			//log.Println("相近删除")
 		} else {
 			if PointsAreClose(eOutPt.Prev.Pt, eOutPt.Next.Pt, fFloat) {
+				temp := eOutPt.Prev
 				ExcludeOp(eOutPt.Next)
-				eOutPt = ExcludeOp(eOutPt)
+				ExcludeOp(eOutPt)
+				eOutPt = temp
+				eOutPt.Idx = 0
 				c -= 2
+			//	log.Println("尖角删除")
 			} else {
-				if SlopesNearCollinear(eOutPt.Prev.Pt, eOutPt.Pt, eOutPt.Next.Pt, fFloat) {
+				if SlopesNearCollinear(eOutPt.Prev.Pt, eOutPt.Pt, eOutPt.Next.Pt, fFloat)&&false {
 					// if this.isWart {
 					// 	if c > 4 {
-					// 		eOutPt = ExcludeOp(eOutPt)
+					// 		temp := eOutPt.Prev
+					// 		ExcludeOp(eOutPt)
+					// 		eOutPt = temp
+					// 		eOutPt.Idx = 0
 					// 		c = c - 1
 					// 	} else {
 					// 		break
 					// 	}
 					// } else {
-					eOutPt = ExcludeOp(eOutPt)
-					c = c - 1
-					//}
+						temp := eOutPt.Prev
+						ExcludeOp(eOutPt)
+						eOutPt = temp
+						eOutPt.Idx = 0
+						c = c - 1
+						//log.Println("同线删除")
+				//	}
 				} else {
 					eOutPt.Idx = 1
 					eOutPt = eOutPt.Next
@@ -142,8 +165,17 @@ func (this *PolygonStruct) CleanPolygon(b float64) {
 	if len(this.RootPoly.polygonBeforeRotation) != 0 {
 		panic(" polygonBeforeRotation")
 	}
+	var cleanNearCollinear bool = true
+	var cleanClosePoint bool  = true
+	var cleanSharpAngel bool = false
+	fFloat := 0.0
 	if b < 0 {
-		b = 1.415 //？ saya
+		rectbounds := getPolygonBounds(this.RootPoly.OriginPolygon) 
+		l:=rectbounds.height +rectbounds.width
+		fFloat= l/30
+		//b = 0.3 //？1.415 原始值 saya
+	}else{
+		fFloat = b * b
 	}
 
 	c := len(this.RootPoly.OriginPolygon)
@@ -163,30 +195,44 @@ func (this *PolygonStruct) CleanPolygon(b float64) {
 		pointChain[f].Next.Prev = pointChain[f]
 		pointChain[f].Idx = 0
 	}
-
-	fFloat := b * b
+	//",c)
 	eOutPt := pointChain[0]
 	for 0 == eOutPt.Idx && eOutPt.Next != eOutPt.Prev {
-		if PointsAreClose(eOutPt.Pt, eOutPt.Prev.Pt, fFloat) {
-			eOutPt = ExcludeOp(eOutPt)
+		if PointsAreClose(eOutPt.Pt, eOutPt.Prev.Pt, fFloat) && cleanClosePoint{
+			temp := eOutPt.Prev
+			ExcludeOp(eOutPt)
+			eOutPt = temp.Next
+			eOutPt.Idx = 0
 			c = c - 1
+			//log.Println("相近删除")
 		} else {
-			if PointsAreClose(eOutPt.Prev.Pt, eOutPt.Next.Pt, fFloat) {
+			if PointsAreClose(eOutPt.Prev.Pt, eOutPt.Next.Pt, fFloat)&&cleanSharpAngel {
+				temp := eOutPt.Prev
 				ExcludeOp(eOutPt.Next)
-				eOutPt = ExcludeOp(eOutPt)
+				ExcludeOp(eOutPt)
+				eOutPt = temp
+				eOutPt.Idx = 0
 				c -= 2
+			//	log.Println("尖角删除")
 			} else {
-				if SlopesNearCollinear(eOutPt.Prev.Pt, eOutPt.Pt, eOutPt.Next.Pt, fFloat) {
+				if SlopesNearCollinear(eOutPt.Prev.Pt, eOutPt.Pt, eOutPt.Next.Pt, 0)&&cleanNearCollinear {
 					if this.isWart {
 						if c > 4 {
-							eOutPt = ExcludeOp(eOutPt)
+							temp := eOutPt.Prev
+							ExcludeOp(eOutPt)
+							eOutPt = temp
+							eOutPt.Idx = 0
 							c = c - 1
 						} else {
 							break
 						}
 					} else {
-						eOutPt = ExcludeOp(eOutPt)
-						c = c - 1
+						temp := eOutPt.Prev
+						ExcludeOp(eOutPt)
+						eOutPt = temp
+						eOutPt.Idx = 0
+						c = c - 1//原先同线删除逻辑
+						//log.Println("同线删除")
 					}
 				} else {
 					eOutPt.Idx = 1
@@ -199,14 +245,12 @@ func (this *PolygonStruct) CleanPolygon(b float64) {
 		c = 0
 	}
 	g := []*Point{}
-	//g2 := []*Point{}
 	for f := 0; f < c; f++ {
 		g = append(g, &Point{X: eOutPt.Pt.X, Y: eOutPt.Pt.Y})
-		//g2 = append(g2, &Point{X: eOutPt.Pt.X, Y: eOutPt.Pt.Y})
 		eOutPt = eOutPt.Next
 	}
 	this.RootPoly.polygonBeforeRotation = g
-	//this.RootPoly.polygonAfterRotaion = g2
+	this.RootPoly.CleanedPolygon =CopyPointList(this.RootPoly.polygonBeforeRotation) 
 }
 
 type PolygonStructSlice []*PolygonStruct
@@ -221,7 +265,7 @@ func (this PolygonStructSlice) Less(i, j int) bool {
 	if !this[i].isWart && this[j].isWart {
 		return false
 	}
-	return math.Abs(polygonArea(this[i].RootPoly.polygonBeforeRotation)) > math.Abs(polygonArea(this[j].RootPoly.polygonBeforeRotation))
+	return math.Abs(PolygonArea(this[i].RootPoly.polygonBeforeRotation)) > math.Abs(PolygonArea(this[j].RootPoly.polygonBeforeRotation))
 }
 
 func (this PolygonStructSlice) Swap(i, j int) {
@@ -424,7 +468,7 @@ const clipperScaleTimes int64 = 10000
 
 var PublicConfig *ConfigStruct = &ConfigStruct{
 	ClipperScale:   clipperScaleTimes, // 扩大倍数
-	CurveTolerance: 0.3,
+	CurveTolerance: 0.3,//原来默认值0.3 saya
 	ExploreConcave: false, //searchEdges
 	MutationRate:   20,
 	PopulationSize: 2,

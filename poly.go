@@ -65,3 +65,9 @@ func (this *PolygonStruct) AddChildPoly(points []*Point) string {
 	this.RootPoly.children = append(this.RootPoly.children, newNodePoly(points))
 	return this.Name
 }
+func (this *PolygonStruct) TypeID() int {
+	return this.typeID
+}
+func (this *PolygonStruct) GetPolygonBeforeRotation() []*Point {
+	return this.RootPoly.polygonBeforeRotation
+}

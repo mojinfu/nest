@@ -1,14 +1,18 @@
 package nest
 
 import (
+	"fmt"
 	"log"
 	"math"
 
 	. "github.com/mojinfu/point"
 )
 
-func (this *placementsStruct) CaculateFitness() {
+func (this *placementsStruct) CaculateFitness(placementWorker *PlacementWorkerStruct) {
+	//log.Println("CaculateFitness")
 	var fitness float64 = 10000
+	this.MaxWidth = make([]float64, len(this.Placements))
+	this.MaxHeigth = make([]float64, len(this.Placements))
 	for index := range this.Placements {
 		if len(this.Placements[index]) > 0 {
 			fitness++
@@ -21,12 +25,32 @@ func (this *placementsStruct) CaculateFitness() {
 				}
 			}
 			rectbounds := getPolygonBounds(allpoints)
-			fitness += rectbounds.width / this.binArea[index]
+			//fitness += rectbounds.width / this.binArea[index]
+			if this.MaxWidth[index] == 0 {
+				this.MaxWidth[index] = rectbounds.width
+				this.MaxHeigth[index] = rectbounds.height
+			}
+			if rectbounds.width < this.MaxWidth[index] {
+				this.MaxWidth[index] = rectbounds.width
+				this.MaxHeigth[index] = rectbounds.height
+			}
+			// fmt.Println("rectbounds.width:", rectbounds.width)
+			// fmt.Println("placementWorker.nest.WidthWeight:", placementWorker.nest.WidthWeight)
+			// fmt.Println("rectbounds.height:", rectbounds.height)
+			// fmt.Println("placementWorker.nest.LengthWeight:", placementWorker.nest.LengthWeight)
+
+			fitness += (rectbounds.width*placementWorker.nest.LengthWeight + placementWorker.nest.WidthWeight*rectbounds.height) / this.binArea[index]
+
 		}
 	}
 	this.fitness = fitness
+	//log.Println("max:", max)
 }
+
+var iii int = 0
+
 func (this *PlacementWorkerStruct) newPlacePaths() (*placementsStruct, error) {
+	//log.Println("开始 newPlacePaths")
 	if len(this.binPolygons) == 0 {
 		panic("")
 	}
@@ -41,7 +65,7 @@ func (this *PlacementWorkerStruct) newPlacePaths() (*placementsStruct, error) {
 	binareaList := []float64{}
 	var placements = [][]*PositionStruct{}
 	for index := range this.binPolygons {
-		binareaList = append(binareaList, math.Abs(polygonArea(this.binPolygons[index].RootPoly.polygonBeforeRotation)))
+		binareaList = append(binareaList, math.Abs(PolygonArea(this.binPolygons[index].RootPoly.polygonBeforeRotation)))
 		placed = append(placed, []*PolygonStruct{})
 		placements = append(placements, []*PositionStruct{})
 	}
@@ -95,9 +119,16 @@ func (this *PlacementWorkerStruct) newPlacePaths() (*placementsStruct, error) {
 									rotation: path.rotation,
 								}
 							}
+						} else if position != nil && binNfp[j][k].X-path.RootPoly.polygonAfterRotaion[0].X == position.x && binNfp[j][k].Y-path.RootPoly.polygonAfterRotaion[0].Y < position.y {
+							position = &PositionStruct{
+								x:        binNfp[j][k].X - path.RootPoly.polygonAfterRotaion[0].X,
+								y:        binNfp[j][k].Y - path.RootPoly.polygonAfterRotaion[0].Y,
+								id:       path.id,
+								rotation: path.rotation,
+							}
 						}
 					}
-					//找到要放置碎片移到npf多边形上的位移方式 ： 目前是x位移最小
+					//找到要放置碎片移到npf多边形上的位移方式 ： 目前是x位移最小 x相等找y最小
 				}
 				placements[binIndex] = append(placements[binIndex], position)
 				placed[binIndex] = append(placed[binIndex], path)
@@ -135,7 +166,24 @@ func (this *PlacementWorkerStruct) newPlacePaths() (*placementsStruct, error) {
 						var area = Abs(Area(intclone))
 						if len(intclone) > 2 && area*10 > this.config.ClipperScale*this.config.ClipperScale {
 							// if path.typeID == 9999 {
-							// 	this.nest.debugnfpList = append(this.nest.debugnfpList, toNestCoordinates(intclone, this.config.ClipperScale))
+							//	this.nest.debugnfpList = append(this.nest.debugnfpList, toNestCoordinates(intclone, this.config.ClipperScale))
+
+							if false {
+								placed[binIndex][j].RootPoly.RotateToEndPolygon(placements[binIndex][j].rotation)
+								placed[binIndex][j].TranslateToEndPolygon(placements[binIndex][j].x, placements[binIndex][j].y)
+
+								printPoly := []*Point{}
+								for m := 0; m < len(placed[binIndex][j].RootPoly.EndPolygon); m++ {
+									printPoly = append(printPoly, &Point{
+										X: placed[binIndex][j].RootPoly.EndPolygon[m].X,
+										Y: placed[binIndex][j].RootPoly.EndPolygon[m].Y,
+									})
+								}
+								placed[binIndex][j].RootPoly.EndPolygon = []*Point{}
+								this.nest.debugnfpList = append(this.nest.debugnfpList, printPoly)
+
+							}
+
 							// }
 							clipper.AddPath(intclone, ptSubject, true)
 						} else {
@@ -146,6 +194,7 @@ func (this *PlacementWorkerStruct) newPlacePaths() (*placementsStruct, error) {
 						}
 					}
 				}
+
 				//计算可行域之间的关系
 				combinedNfp, isExecuteOK := clipper.Execute(ctUnion, pftNonZero, pftNonZero)
 				if !isExecuteOK {
@@ -155,7 +204,9 @@ func (this *PlacementWorkerStruct) newPlacePaths() (*placementsStruct, error) {
 				}
 				isClockwise := Area(combinedNfp[0]) > 0
 				for index2 := range combinedNfp {
-					//	this.nest.debugnfpList2 = append(this.nest.debugnfpList2, toNestCoordinates(combinedNfp[index2], this.config.ClipperScale))
+					if false {
+						this.nest.debugnfpList2 = append(this.nest.debugnfpList2, toNestCoordinates(combinedNfp[index2], this.config.ClipperScale))
+					}
 					if index2 == 0 {
 						continue
 					}
@@ -163,6 +214,7 @@ func (this *PlacementWorkerStruct) newPlacePaths() (*placementsStruct, error) {
 						combinedNfp[index2] = IntPointReverse(combinedNfp[index2])
 					}
 				}
+
 				// difference with bin Polygon
 				var finalNfpBeforeClean = []IntPolygon{}
 				clipper = Clipper(0)
@@ -175,7 +227,7 @@ func (this *PlacementWorkerStruct) newPlacePaths() (*placementsStruct, error) {
 					continue
 				}
 				if len(finalNfpBeforeClean) == 0 {
-					log.Println("!!!!!出现 len(finalNfpBeforeClean) ==0")
+					//log.Println("这个bin ", binIndex, "放不下了")
 					continue
 				}
 				///此处必须清理！！
@@ -213,10 +265,35 @@ func (this *PlacementWorkerStruct) newPlacePaths() (*placementsStruct, error) {
 					finalNfpScaleDown = append(finalNfpScaleDown, toNestCoordinates(finalNfp[j], this.config.ClipperScale))
 				}
 				finalNfpFloat := finalNfpScaleDown
-				position = MinWidthAndAtLeft(path, finalNfpFloat, placed[binIndex], placements[binIndex])
+				position = MinWidthAndAtMinNfpLeft(path, finalNfpFloat, placed[binIndex], placements[binIndex])
 				if position != nil {
 					placed[binIndex] = append(placed[binIndex], path)
 					placements[binIndex] = append(placements[binIndex], position)
+
+					if false { //saya
+						paper := NewPaper(1000, 1000, this.config.PaperSavePath)
+						for index := range this.nest.debugnfpList2 {
+							paper.AddPolygon(this.nest.debugnfpList2[index], true)
+						}
+						for index := range this.nest.debugnfpList {
+							paper.AddPolygon(this.nest.debugnfpList[index], false)
+						}
+						printPoly := []*Point{}
+						for m := 0; m < len(path.RootPoly.polygonBeforeRotation); m++ {
+							printPoly = append(printPoly, &Point{
+								X: path.RootPoly.polygonBeforeRotation[m].X,
+								Y: path.RootPoly.polygonBeforeRotation[m].Y,
+							})
+						}
+
+						paper.AddPolygon(path.RootPoly.polygonBeforeRotation, true)
+
+						paper.Draw("nfpxx", fmt.Sprintf("%d", iii))
+						iii++
+						this.nest.debugnfpList2 = [][]*Point{}
+						this.nest.debugnfpList = [][]*Point{}
+					}
+
 					break
 				}
 			}
@@ -227,6 +304,6 @@ func (this *PlacementWorkerStruct) newPlacePaths() (*placementsStruct, error) {
 		}
 	}
 	myPlace := &placementsStruct{Placements: placements, placedPaths: placed, binArea: binareaList}
-	myPlace.CaculateFitness()
+	myPlace.CaculateFitness(this)
 	return myPlace, nil
 }

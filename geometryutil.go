@@ -1,12 +1,13 @@
 package nest
 
 import (
+	"log"
 	"math"
 
 	. "github.com/mojinfu/point"
 )
 
-func polygonArea(myPolygon Polygon) float64 {
+func PolygonArea(myPolygon Polygon) float64 {
 	var area float64 = 0
 	var i, j int
 	i = 0
@@ -98,8 +99,31 @@ func isRectangle(poly Polygon, tolerance float64) bool {
 
 	return true
 }
+func (this *SVG) intersectSituation1(oldA, oldB *polygonWithOffset) bool {
+	//判断 相交的一种简单情况
+	A := TranslatePolygon(oldA.Polygon, oldA.offsetx, oldA.offsety)
+	B := TranslatePolygon(oldB.Polygon, oldB.offsetx, oldB.offsety)
+	var isIn int64 = 0
+	for i := range B {
+		isOneIn := pointInPolygon(B[i], A)
+		if isOneIn != 0 && isIn == 0 {
+			isIn = isOneIn
+		}
+		if isOneIn != 0 {
+			if isIn != isOneIn {
+				return true
+			}
+		}
+	}
+	return false
+}
 func (this *SVG) intersect(oldA, oldB *polygonWithOffset) bool {
-
+	//有一种特殊情况还未考虑
+	if this.intersectSituation1(oldA, oldB) {
+		//简单判断
+		return true
+	}
+	//好像有问题
 	var Aoffsetx = oldA.offsetx
 	var Aoffsety = oldA.offsety
 
@@ -144,7 +168,7 @@ func (this *SVG) intersect(oldA, oldB *polygonWithOffset) bool {
 			}
 
 			// go even further back if we happen to hit on a loop end Point
-			if B[prevbindex] == B[j] || (_almostEqual2(B[prevbindex].X, B[j].X) && _almostEqual2(B[prevbindex].Y, B[j].Y)) {
+			if (B[prevbindex].X == B[j].X && B[prevbindex].Y == B[j].Y) || (_almostEqual2(B[prevbindex].X, B[j].X) && _almostEqual2(B[prevbindex].Y, B[j].Y)) {
 
 				if prevbindex == 0 {
 					prevbindex = len(B) - 1
@@ -153,7 +177,7 @@ func (this *SVG) intersect(oldA, oldB *polygonWithOffset) bool {
 				}
 			}
 
-			if A[prevaindex] == A[i] || (_almostEqual2(A[prevaindex].X, A[i].X) && _almostEqual2(A[prevaindex].Y, A[i].Y)) {
+			if (A[prevaindex].X == A[i].X && A[prevaindex].Y == A[i].Y) || (_almostEqual2(A[prevaindex].X, A[i].X) && _almostEqual2(A[prevaindex].Y, A[i].Y)) {
 
 				if prevaindex == 0 {
 					prevaindex = len(A) - 1
@@ -378,19 +402,19 @@ func (this *SVG) polygonProjectionDistance(oldA, oldB *polygonWithOffset, direct
 
 }
 func (this *SVG) searchStartPoint(oldA, oldB *polygonWithOffset, inside bool, NFP []Polygon) *Point {
-
+	//有些问题
 	A := &polygonWithOffset{
 		Polygon: oldA.Polygon[:],
 	}
 	B := &polygonWithOffset{
 		Polygon: oldB.Polygon[:],
 	}
-	if A.Polygon[0] != A.Polygon[len(A.Polygon)-1] {
-		A.Polygon = append(A.Polygon, A.Polygon[0])
+	if A.Polygon[0].X != A.Polygon[len(A.Polygon)-1].X && A.Polygon[0].Y != A.Polygon[len(A.Polygon)-1].Y {
+		A.Polygon = append(A.Polygon, A.Polygon[0]) //20201123修改
 	}
 
-	if B.Polygon[0] != B.Polygon[len(B.Polygon)-1] {
-		B.Polygon = append(B.Polygon, B.Polygon[0])
+	if B.Polygon[0].X != B.Polygon[len(B.Polygon)-1].X && B.Polygon[0].Y != B.Polygon[len(B.Polygon)-1].Y {
+		B.Polygon = append(B.Polygon, B.Polygon[0]) //20201123修改
 	}
 
 	for i := 0; i < len(A.Polygon)-1; i++ {
@@ -1013,6 +1037,10 @@ func (this *SVG) noFitPolygon(A, B Polygon, inside bool, searchEdges bool) [][]*
 
 			if translate == nil || _almostEqual2(maxd, 0) {
 				// didn't close the loop, something went wrong here
+				//something wrong here
+				for index := range NFP {
+					log.Printf("ill nfp start point : &Point%+v\n", *NFP[index])
+				}
 				NFP = nil
 				break
 			}
@@ -1052,7 +1080,6 @@ func (this *SVG) noFitPolygon(A, B Polygon, inside bool, searchEdges bool) [][]*
 				// we've made a full loop
 				break
 			}
-
 			NFP = append(NFP, &Point{
 				X: referencex,
 				Y: referencey,
@@ -1157,6 +1184,53 @@ func getPolygonBounds(myPolygon Polygon) *BoundStruct {
 	}
 
 	return &BoundStruct{
+		x:      xmin,
+		y:      ymin,
+		width:  xmax - xmin,
+		height: ymax - ymin,
+	}
+}
+
+type IntBoundStruct struct {
+	x      int64
+	y      int64
+	width  int64
+	height int64
+}
+
+func getIntPolygonBounds(myPolygon []*IntPoint) *IntBoundStruct {
+	if myPolygon == nil {
+		return &IntBoundStruct{
+			x:      0,
+			y:      0,
+			width:  0,
+			height: 0,
+		}
+	}
+	if len(myPolygon) < 3 {
+		return nil
+	}
+
+	var xmin = myPolygon[0].X
+	var xmax = myPolygon[0].X
+	var ymin = myPolygon[0].Y
+	var ymax = myPolygon[0].Y
+
+	for i := 1; i < len(myPolygon); i++ {
+		if myPolygon[i].X > xmax {
+			xmax = myPolygon[i].X
+		} else if myPolygon[i].X < xmin {
+			xmin = myPolygon[i].X
+		}
+
+		if myPolygon[i].Y > ymax {
+			ymax = myPolygon[i].Y
+		} else if myPolygon[i].Y < ymin {
+			ymin = myPolygon[i].Y
+		}
+	}
+
+	return &IntBoundStruct{
 		x:      xmin,
 		y:      ymin,
 		width:  xmax - xmin,

@@ -5,10 +5,12 @@ import (
 
 	"github.com/mojinfu/nest"
 	"github.com/mojinfu/point"
+	"github.com/rlds/rlog"
 )
 
 func main() {
-	Start2()
+	rlog.LogInit(3, "./log/", 1800, 1)
+	Start1()
 }
 func Start1() {
 	nest.PublicConfig.PartPartSpacing = 0

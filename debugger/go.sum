@@ -1,0 +1,4 @@
+github.com/mojinfu/point v0.0.0-20200611074224-d4e87be34146 h1:bSDe0FAWNrP7ynYpFhSOha53y3uJo684WY0gNfBdqzM=
+github.com/mojinfu/point v0.0.0-20200611074224-d4e87be34146/go.mod h1:z9X38M+jnzovgREBvVo+3brhUSyXf6Jd26jAubS+pMk=
+github.com/rlds/rlog v0.0.0-20190819060202-40e64e616c6e h1:QO3aQA7C0JiMgngxfsmVvkILEExuxPhT9z6x4EwOHbk=
+github.com/rlds/rlog v0.0.0-20190819060202-40e64e616c6e/go.mod h1:Krbx7UsIOg0fygbozbv8FaMbLdrJxSm0Bi8VsC8zjBU=
